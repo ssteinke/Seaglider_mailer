@@ -4,24 +4,25 @@
 import sys
 import os
 from scipy.io import netcdf
-from BaseNetCDF import *
+import base.BaseNetCDF
 import numpy as np
 import time
-import glob
-import BaseOpts
-from BaseLog import *
-import FileMgr
-from CalibConst import getSGCalibrationConstants
-import MakeDiveProfiles
-import BaseGZip
-import zipfile
-import CommLog
-import Utils
-import Conf
-import LogFile
+import base.BaseOpts
+import base.BaseLog
+import base.FileMgr
+from base.CalibConst import getSGCalibrationConstants
+#import MakeDiveProfiles
+import base.CommLog
+import base.Utils
+import base.Conf
 import collections
-import Base
-import LogFile
+import base.Base
+import re
+
+
+# TODO: Remove base.* for all imports
+# TODO: Clean (remove config part)
+# TODO: Change process to use MailContent
 
 dive_gps_position = collections.namedtuple('dive_gps_position', ['gps_lat_one', 'gps_lon_one', 'gps_time_one',
                                                                  'gps_lat_start', 'gps_lon_start', 'gps_time_start',
@@ -36,6 +37,197 @@ m_per_deg = 111120.
 make_kaust_section = 'makekaust'
 make_kaust_default_dict = {'color' : ['00ffff', None]}
 
+
+class MailContent:
+    """Object representing content for automated mail
+    """
+    def __init__(self):
+        self.glider = None
+        self.mission = None
+        self.dive = None
+        self.call_cycle = None
+        self.gps_time = None
+        self.gps_position = None
+        self.target_depth = None
+        self.max_depth = None
+        self.end_dive_reason = None
+        self.target = None
+        self.target_latLon = None
+        self.distance_target = None
+        self.altimeter_ping = 'no ping'
+        self.altimeter_bottom_depth = None
+        self.errors = None
+        self.critical_msg = None
+
+        self.error_buffer_overrun = None
+        self.error_TT8 = None
+        self.error_CFOpeningFiles = None
+        self.error_CFWritingFiles = None
+        self.error_CFClosingFiles = None
+        self.retries_CFOpeningFiles = None
+        self.retries_CFWritingFiles = None
+        self.retries_CFClosingFiles = None
+        self.error_pit = None
+        self.error_rol = None
+        self.error_vbd = None
+        self.retries_pit = None
+        self.retries_rol = None
+        self.retries_vbd = None
+        self.error_noGPSFix = None
+        self.error_sensor_timeout = None
+
+
+    def dump(self, fo=sys.stdout):
+        """Dumps out the logfile
+        """
+        # print >>fo, "version: %2.2f" % ( self.version)
+        if self.glider != None:
+            print >>fo, "glider: %s" % (self.glider)
+        if self.mission != None:
+            print >>fo, "mission: %s" % (self.mission)
+        if self.dive != None:
+            print >>fo, "dive: %s" % (self.dive)
+        if self.call_cycle != None:
+            print >>fo, "call_cycle: %s" % (self.call_cycle)
+        if self.gps_time != None:
+            print >>fo, "gps_time: %d" % (self.gps_time)
+        if self.gps_position != None:
+            print >>fo, "gps_position: %d" % (self.gps_position)
+        if self.target_depth != None:
+            print >>fo, "target_depth [m]: %s" % (self.target_depth)
+        if self.max_depth != None:
+            print >>fo, "max_depth [m]: %d" % (self.max_depth)
+        if self.end_dive_reason != None:
+            print >>fo, "end_dive_reason: %s" % (self.end_dive_reason)
+        if self.target != None:
+            print >>fo, "target: %s" % (self.target)
+        if self.target_latLon != None:
+            print >>fo, "target_latLon: %s" % (self.target_latLon)
+        if self.distance_target != None:
+            print >>fo, "distance_target [m]: %s" % (self.distance_target)
+        if self.altimeter_ping != None:
+            print >>fo, "altimeter_ping: %s" % (self.altimeter_ping)
+        if self.altimeter_bottom_depth != None:
+            print >>fo, "altimeter_bottom_depth: %s" % (self.altimeter_bottom_depth)
+        if self.errors != None:
+            print >>fo, "errors: %s" % (self.errors)
+        if self.error_buffer_overrun != None:
+            print >>fo, "error_buffer_overrun: %s" % (self.error_buffer_overrun)
+        if self.error_TT8 != None:
+            print >>fo, "error_TT8: %s" % (self.error_TT8)
+        if self.error_CFOpeningFiles != None:
+            print >>fo, "error_CFOpeningFiles: %s" % (self.error_CFOpeningFiles)
+        if self.error_CFWritingFiles != None:
+            print >>fo, "error_CFWritingFiles: %s" % (self.error_CFWritingFiles)
+        if self.error_CFClosingFiles != None:
+            print >>fo, "error_CFClosingFiles: %s" % (self.error_CFClosingFiles)
+        if self.retries_CFOpeningFiles != None:
+            print >>fo, "retries_CFOpeningFiles: %s" % (self.retries_CFOpeningFiles)
+        if self.retries_CFWritingFiles != None:
+            print >>fo, "retries_CFWritingFiles: %s" % (self.retries_CFWritingFiles)
+        if self.retries_CFClosingFiles != None:
+            print >>fo, "retries_CFClosingFiles: %s" % (self.retries_CFClosingFiles)
+        if self.error_pit != None:
+            print >>fo, "error_pit: %s" % (self.error_pit)
+        if self.error_rol != None:
+            print >>fo, "error_rol: %s" % (self.error_rol)
+        if self.error_vbd != None:
+            print >>fo, "error_vbd: %s" % (self.error_vbd)
+        if self.retries_pit != None:
+            print >>fo, "retries_pit: %s" % (self.retries_pit)
+        if self.retries_rol != None:
+            print >>fo, "retries_rol: %s" % (self.retries_rol)
+        if self.retries_vbd != None:
+            print >>fo, "retries_vbd: %s" % (self.retries_vbd)
+        if self.error_noGPSFix != None:
+            print >>fo, "error_noGPSFix: %s" % (self.error_noGPSFix)
+        if self.error_sensor_timeout != None:
+            print >>fo, "error_sensor_timeout: %s" % (self.error_sensor_timeout)
+        if self.critical_msg != None:
+            print >>fo, "critical_msg: %s" % (self.critical_msg)
+
+
+    def fill_from_log(self, logfile, call_cycle, instrument_id, dive_number):
+        if os.path.isfile(logfile):
+            for line in open(logfile, 'r'):
+                line = line.strip('\n')
+                # $D_GRID,900 (bathy or target depth)
+                # $GPS,130317,142902,2716.761,3524.448,24,0.9,24,3.9
+                if re.search('\$ID,', line):
+                    self.glider = line.split(',')[-1]
+                if re.search('MISSION', line):
+                    self.mission = line.split(',')[-1]
+                if re.search('\$DIVE,', line):
+                    self.dive = line.split(',')[-1]
+                if re.search('_CALLS', line):
+                    self.call_cycle = line.split(',')[-1]
+                if re.search('TGT_NAME', line):
+                    self.target = line.split(',')[-1]
+                if re.search('TGT_LATLONG', line):
+                    self.target_latLon = line.split(',')[1:]
+                if re.search('D_TGT', line):
+                    self.target_depth = line.split(',')[-1]
+                if re.search('\$ERRORS', line):
+                    self.errors = line.split(',')[1:]
+                    str_arr = line.split(',')[1:]
+                    if len(str_arr) != 16:
+                        print 'error line not 16..'+line
+                    else:
+                        if str_arr[0] != '0':
+                            self.error_buffer_overrun = str_arr[0]
+                        if str_arr[1] != '0':
+                            self.error_TT8 = str_arr[1]
+                        if str_arr[2] != '0':
+                            self.error_CFOpeningFiles = str_arr[2]
+                        if str_arr[3] != '0':
+                            self.error_CFWritingFiles = str_arr[3]
+                        if str_arr[4] != '0':
+                            self.error_CFClosingFiles = str_arr[4]
+                        if str_arr[5] != '0':
+                            self.retries_CFOpeningFiles = str_arr[5]
+                        if str_arr[6] != '0':
+                            self.retries_CFWritingFiles = str_arr[6]
+                        if str_arr[7] != '0':
+                            self.retries_CFClosingFiles = str_arr[7]
+                        if str_arr[8] != '0':
+                            self.error_pit = str_arr[8]
+                        if str_arr[9] != '0':
+                            self.error_rol = str_arr[9]
+                        if str_arr[10] != '0':
+                            self.error_vbd = str_arr[10]
+                        if str_arr[11] != '0':
+                            self.retries_pit = str_arr[11]
+                        if str_arr[12] != '0':
+                            self.retries_rol = str_arr[12]
+                        if str_arr[13] != '0':
+                            self.retries_vbd = str_arr[13]
+                        if str_arr[14] != '0':
+                            self.error_noGPSFix = str_arr[14]
+                        if str_arr[15] != '0':
+                            self.error_sensor_timeout = str_arr[15]
+                if re.search('MHEAD_RNG_PITCHd_Wd', line):
+                    self.distance_target = line.split(',')[2]
+                if re.search(',end dive', line):
+                    self.end_dive_reason = line.split(',')[-1]
+                if re.search('\$ALTIM_BOTTOM_PING,', line):
+                    str_arr = line.split(',')
+                    if len(str_arr) == 3:
+                        self.altimeter_ping = line.split(',')[1]
+                        self.altimeter_bottom_depth = float(line.split(',')[1]) + float(line.split(',')[2])
+                    elif len(str_arr) == 2:
+                        self.altimeter_ping = line.split(',')[1]
+                        self.altimeter_bottom_depth = 'no bottom detected'
+
+
+    def fill_from_cap(self, capfile):
+        if os.path.isfile(capfile):
+            for line in open(capfile, 'r'):
+                line = line.strip('\n')
+                if re.search(',C,', line):
+                    if self.critical_msg == None:
+                        self.critical_msg = line + '\n'
+                    else:
+                        self.critical_msg = self.critical_msg + line + '\n'
 
 def extractGPSPositions(dive_nc_file_name, dive_num):
     """ A hack - printDive does this and reads many more variables.  This needs to be expanded and
@@ -100,10 +292,10 @@ def main(instrument_id=None, base_opts=None, sg_calib_file_name=None, dive_nc_fi
     if(sg_calib_file_name == None):
         sg_calib_file_name = os.path.join(base_opts.mission_dir, "sg_calib_constants.m")
 
-    make_kaust_conf = Conf.conf(make_kaust_section, make_kaust_default_dict)
-    if(make_kaust_conf.parse_conf_file(base_opts.config_file_name) and base_opts.config_file_name):
-        log_error("Count not process %s - continuing with defaults" % base_opts.config_file_name)
-    make_kaust_conf.dump_conf_vars()
+    #make_kaust_conf = Conf.conf(make_kaust_section, make_kaust_default_dict)
+    #if(make_kaust_conf.parse_conf_file(base_opts.config_file_name) and base_opts.config_file_name):
+    #    log_error("Count not process %s - continuing with defaults" % base_opts.config_file_name)
+    #make_kaust_conf.dump_conf_vars()
 
     # Read sg_calib_constants file
     calib_consts = getSGCalibrationConstants(sg_calib_file_name)
@@ -151,7 +343,7 @@ def main(instrument_id=None, base_opts=None, sg_calib_file_name=None, dive_nc_fi
     surface_positions = []
     if(comm_log != None):
         for session in comm_log.sessions:
-            if(session.gps_fix != None and session.gps_fix.isvalid ):
+            if(session.gps_fix != None and session.gps_fix.isvalid):
                 surface_positions.append(surface_pos(Utils.ddmm2dd(session.gps_fix.lon),Utils.ddmm2dd(session.gps_fix.lat),time.mktime(session.gps_fix.datetime), session.dive_num, session.call_cycle))
 
     # Sort by time
@@ -199,7 +391,6 @@ def main(instrument_id=None, base_opts=None, sg_calib_file_name=None, dive_nc_fi
         head, tail = os.path.split(os.path.abspath(os.path.expanduser(dive_nc_file_name)))
         dive_num = int(tail[4:8])
         # fo.write('SG%03d dive %03d' % (instrument_id, dive_num))
-
         nc_file_parsable = True # assume the best
         try:
             dive_nc_file = Utils.open_netcdf_file(dive_nc_file_name, 'r')
@@ -232,25 +423,32 @@ def main(instrument_id=None, base_opts=None, sg_calib_file_name=None, dive_nc_fi
             fo.write('\n')
             #fo.write('dive_nc_file_names:\n')
             #fo.write(str(dive_nc_file_names))
-            fo.write('nc_files_created:\n')
-            fo.write(str(nc_files_created))
-            fo.write('\n')
-            fo.write('processed_other_files:\n')
-            fo.write(str(processed_other_files))
-            fo.write('\n')
-            log_name = 'p%03d%04d.log' % (instrument_id, last_surface_position.dive_num)
-            fo.write(log_name)
-            # TODO: target (from log)
-            # TODO: $ERRORS,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0
-            # $TGT_NAME,End
-            # TODO: reason (from log)
-            # $STATE,3849,end dive,TARGET_DEPTH_EXCEEDED)
-            # TODO: distance to target (from log)
+            #fo.write('nc_files_created:\n')
+            #fo.write(str(nc_files_created))
+            #fo.write('\n')
+            #fo.write('processed_other_files:\n')
+            #fo.write(str(processed_other_files))
+            #fo.write('\n')
             dive_nc_file.close()
-            # finalize the data structures
 
         # find log file
-        #log_name = 'p%03d%04d.log' % (instrument_id, last_surface_position.dive_num)
+        log_name = 'p%03d%04d.log' % (instrument_id, last_surface_position.dive_num)
+        # $STATE,3849,end dive,TARGET_DEPTH_EXCEEDED)
+        # TODO: distance to target (from log)
+        log_file_name = os.path.join(base_opts.mission_dir, log_name)
+        if os.path.isfile(log_file_name):
+            fo.write('\nFound log file: '+log_name+'\n')
+            for line in open(log_file_name, 'r'):
+                if re.search('TGT_NAME', line):
+                    fo.write(line)
+                if re.search('D_TGT', line):
+                    fo.write(line)
+                if re.search('ERRORS', line):
+                    fo.write(line)
+                if re.search('MHEAD_RNG_PITCHd_Wd', line):
+                    fo.write(line)
+                if re.search('end dive', line):
+                    fo.write(line)
 
     fo.close()
     # Send mail with file as body...
