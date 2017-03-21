@@ -82,7 +82,6 @@ class MailContent:
                 print >>fo, "Summary for Glider: %s" % (self.glider)
             if self.mission != None:
                 print >>fo, "mission: %s" % (self.mission)
-
         print >>fo, "\n*** Latest communication session: ****"
         if self.comm_gps_time != None:
             print >>fo, "GPS time: %s" % (self.comm_gps_time)
@@ -90,14 +89,11 @@ class MailContent:
             print >>fo, "Dive and call cycle: %s" % (self.comm_dive_call_cycle)
         if self.comm_gps_position != None:
             print >>fo, "GPS position: %s" % (self.comm_gps_position)
-
-
         print >>fo, "\n*** Latest dive: ****"
         if self.log_file != None:
             print >>fo, "log_file: %s" % (self.log_file)
         if self.nc_file != None:
             print >>fo, "nc_file: %s" % (self.nc_file)
-
         if self.dive != None:
             print >>fo, "Dive: %s" % (self.dive)
         if self.call_cycle != None:
@@ -114,16 +110,12 @@ class MailContent:
             print >>fo, "end of dive reason: %s" % (self.end_dive_reason)
         if self.target != None and self.target_latLon != None:
             print >>fo, "On way to target: %s at %s, %s" % (self.target, self.target_latLon[0], self.target_latLon[1])
-        #if self.target_latLon != None:
-        #    print >>fo, "target_latLon: %s" % (self.target_latLon)
         if self.distance_target != None:
             print >>fo, "Distance to target [m]: %s" % (self.distance_target)
         if self.altimeter_ping != None:
             print >>fo, "Altimeter ping: %s" % (self.altimeter_ping)
         if self.altimeter_bottom_depth != None:
             print >>fo, "Altimeter bottom depth: %s" % (self.altimeter_bottom_depth)
-        #if self.errors != None:
-        #    print >>fo, "errors: %s" % (self.errors)
         if self.error_buffer_overrun != None:
             print >>fo, "Error buffer overrun: %s" % (self.error_buffer_overrun)
         if self.error_TT8 != None:
@@ -173,8 +165,7 @@ class MailContent:
             self.log_file = tail
             for line in open(logfile, 'r'):
                 line = line.strip('\n')
-                # $D_GRID,900 (bathy or target depth)
-                # $GPS,130317,142902,2716.761,3524.448,24,0.9,24,3.9
+                # TODO: add $D_GRID (to show if bathy or target depth was used)
                 if re.search('\$ID,', line):
                     self.glider = line.split(',')[-1]
                 if re.search('MISSION', line):
@@ -266,16 +257,13 @@ class MailContent:
         if(comm_log == None):
             log_warning("Could not process comm.log")
 
-        # Attempt to collect surfacing positions from comm.log
         surface_positions = []
         if(comm_log != None):
             for session in comm_log.sessions:
                 if(session.gps_fix != None and session.gps_fix.isvalid):
                     surface_positions.append(surface_pos(Utils.ddmm2dd(session.gps_fix.lon),Utils.ddmm2dd(session.gps_fix.lat),time.mktime(session.gps_fix.datetime), session.dive_num, session.call_cycle))
-        # Sort by time
         surface_positions = sorted(surface_positions, key=lambda position: position.gps_fix_time)
         last_surface_position = surface_positions[-1] if len(surface_positions) else None
-        # Print the last known position outside the tree structure
         if last_surface_position:
             self.comm_dive_call_cycle = "Comm dive: %d:%d" % (last_surface_position.dive_num, last_surface_position.call_cycle)
             self.comm_gps_position = ("GPS Fix: %.4f,  %.4f" % (last_surface_position.gps_fix_lat, last_surface_position.gps_fix_lon))
@@ -286,12 +274,11 @@ class MailContent:
     def fill_from_nc(self, nc_name):
         head, tail = os.path.split(os.path.abspath(os.path.expanduser(nc_name)))
         dive_num = int(tail[4:8])
-        # fo.write('SG%03d dive %03d' % (instrument_id, dive_num))
-        nc_file_parsable = True # assume the best
+        nc_file_parsable = True
         try:
             nc = Utils.open_netcdf_file(nc_name, 'r')
             status = 1
-        except: # can't open file
+        except:
             log_error("Unable to open %s" % nc_name,'exc')
             nc_file_parsable = False
             ncf_file_exists = False
@@ -320,6 +307,7 @@ class MailContent:
                 d = nc.variables['depth']
                 max_depth = np.nanmax(d[:])
                 self.max_depth = max_depth
+                # TODO: add some min-max outputs for sensor data (e.g. Temperature) for quick qc check..
             except:
                 log_error("Could not process %s due to missing variables" % (nc_name))
                 log_error(traceback.format_exc())
@@ -346,7 +334,6 @@ class MailContent:
                             continue
                         if(cnf_line[0] != '#'):
                             log_info("Processing .iop_mailer.cnf line (%s)" % cnf_line)
-                            #pagers_elts = pagers_line.split(',')
                             email_addr = cnf_line
                             self.mails += [email_addr]
 
@@ -356,7 +343,6 @@ class MailContent:
 
 
     def send_mail(self, content, base_opts):
-        # Send mail with file as body...
         try:
             if self.mails != None:
                 for i, mail in enumerate(self.mails):
@@ -386,9 +372,9 @@ def main(instrument_id=None, base_opts=None, sg_calib_file_name=None, dive_nc_fi
     if base_opts is None:
         base_opts = BaseOpts.BaseOptions(sys.argv, 'k',
                                          usage="%prog [Options] ")
-    BaseLogger("iop_mailer", base_opts) # initializes BaseLog
+    BaseLogger("iop_mailer", base_opts)
 
-    args = BaseOpts.BaseOptions._args # positional arguments
+    args = BaseOpts.BaseOptions._args
 
     if(not base_opts.mission_dir):
         print main.__doc__
@@ -447,11 +433,8 @@ def main(instrument_id=None, base_opts=None, sg_calib_file_name=None, dive_nc_fi
 
 if __name__ == "__main__":
     retval = 1
-
-    # Force to be in UTC
     os.environ['TZ'] = 'UTC'
     time.tzset()
-
     try:
         retval = main()
     except Exception:
