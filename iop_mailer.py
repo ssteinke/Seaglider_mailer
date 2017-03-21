@@ -107,7 +107,7 @@ class MailContent:
         if self.max_depth != None:
             print >>fo, "Max. depth [m]: %d" % (self.max_depth)
         if self.end_dive_reason != None:
-            print >>fo, "end of dive reason: %s" % (self.end_dive_reason)
+            print >>fo, "End of dive reason: %s" % (self.end_dive_reason)
         if self.target != None and self.target_latLon != None:
             print >>fo, "On way to target: %s at %s, %s" % (self.target, self.target_latLon[0], self.target_latLon[1])
         if self.distance_target != None:
@@ -151,7 +151,7 @@ class MailContent:
 
         print >>fo, "\n*** Critical errors from capture file (if any): ****"
         if self.critical_msg != None:
-            print >>fo, "critical_msg: %s" % (self.critical_msg)
+            print >>fo, "%s" % (self.critical_msg)
         else:
             print >>fo, "None"
 

@@ -26,7 +26,7 @@ Fix time 10:34:56 03/11/17 AST
 GPS Fix: 27.1234,  35.1234
 Target depth [m]: 500
 Max. depth [m]: 512
-end of dive reason: TARGET_DEPTH_EXCEEDED
+End of dive reason: TARGET_DEPTH_EXCEEDED
 On way to target: Midback at 2719.000, 3531.000
 Distance to target [m]: 10086
 Altimeter ping: no ping
@@ -36,7 +36,7 @@ Retries roll: 72
 Error no GPS Fix: 1
 
 *** Critical errors from capture file (if any): ****
-critical_msg: 8122.141,HROLL,C,Roll completed from 0.65 deg (1931) to 57.84 deg (3954) took 13.2 sec 2mA (15mA peak) 26.2Vmin 153.26 AD/sec 528 ticks; 72 retries (37 w/o motion); 1 errors
+8122.141,HROLL,C,Roll completed from 0.65 deg (1931) to 57.84 deg (3954) took 13.2 sec 2mA (15mA peak) 26.2Vmin 153.26 AD/sec 528 ticks; 72 retries (37 w/o motion); 1 errors
 ```
 
 ## Requirements
