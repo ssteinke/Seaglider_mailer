@@ -18,7 +18,6 @@ import Conf
 import collections
 import Base as Base
 import re
-import ConfigParser
 import io
 
 
@@ -68,6 +67,13 @@ class MailContent:
         self.error_noGPSFix = None
         self.error_sensor_timeout = None
         self.mails = None
+
+        self.temperature = None
+        self.salinity = None
+        self.density = None
+        self.dis_oxygen = None
+        self.chla = None
+        self.cdom = None
 
 
     def dump(self, fo=sys.stdout):
@@ -155,6 +161,19 @@ class MailContent:
         else:
             print >>fo, "None"
 
+        print >>fo, "\n*** Sensor ranges: ****"
+        if self.temperature != None:
+            print >>fo, "Temperature: %.2f - %.2f" % (self.temperature[0], self.temperature[1])
+        if self.salinity != None:
+            print >>fo, "Salinity: %.2f - %.2f" % (self.salinity[0], self.salinity[1])
+        if self.density != None:
+            print >>fo, "Density: %.2f - %.2f" % (self.density[0], self.density[1])
+        if self.dis_oxygen != None:
+            print >>fo, "Dissolved oxygen: %.2f - %.2f" % (self.dis_oxygen[0], self.dis_oxygen[1])
+        if self.cdom != None:
+            print >>fo, "CDOM: %.2f - %.2f" % (self.cdom[0], self.cdom[1])
+        if self.chla != None:
+            print >>fo, "Chlorophyll a: %.2f - %.2f" % (self.chla[0], self.chla[1])
 
     def fill_from_log(self, logfile):
         """ Get information from log file
@@ -307,9 +326,57 @@ class MailContent:
                 d = nc.variables['depth']
                 max_depth = np.nanmax(d[:])
                 self.max_depth = max_depth
-                # TODO: add some min-max outputs for sensor data (e.g. Temperature) for quick qc check..
             except:
                 log_error("Could not process %s due to missing variables" % (nc_name))
+                log_error(traceback.format_exc())
+            try:
+                d = nc.variables['temperature']
+                max = np.nanmax(d[:])
+                min = np.nanmin(d[:])
+                self.temperature = [min, max]
+            except:
+                log_error("Could not read sensor data from %s " % (nc_name))
+                log_error(traceback.format_exc())
+            try:
+                d = nc.variables['salinity']
+                max = np.nanmax(d[:])
+                min = np.nanmin(d[:])
+                self.salinity = [min, max]
+
+            except:
+                log_error("Could not read sensor data from %s " % (nc_name))
+                log_error(traceback.format_exc())
+            try:
+                d = nc.variables['aanderaa4330_dissolved_oxygen']
+                max = np.nanmax(d[:])
+                min = np.nanmin(d[:])
+                self.dis_oxygen = [min, max]
+            except:
+                log_error("Could not read sensor data from %s " % (nc_name))
+                log_error(traceback.format_exc())
+            try:
+                d = nc.variables['density']
+                max = np.nanmax(d[:])
+                min = np.nanmin(d[:])
+                self.density = [min, max]
+            except:
+                log_error("Could not read sensor data from %s " % (nc_name))
+                log_error(traceback.format_exc())
+            try:
+                d = nc.variables['wlfl3_sig695nm_adjusted']
+                max = np.nanmax(d[:])
+                min = np.nanmin(d[:])
+                self.chla = [min, max]
+            except:
+                log_error("Could not read sensor data from %s " % (nc_name))
+                log_error(traceback.format_exc())
+            try:
+                d = nc.variables['wlfl3_sig460nm_adjusted']
+                max = np.nanmax(d[:])
+                min = np.nanmin(d[:])
+                self.cdom = [min, max]
+            except:
+                log_error("Could not read sensor data from %s " % (nc_name))
                 log_error(traceback.format_exc())
             nc.close()
 
@@ -430,6 +497,7 @@ def main(instrument_id=None, base_opts=None, sg_calib_file_name=None, dive_nc_fi
     log_info("Finished processing " + time.strftime("%H:%M:%S %d %b %Y %Z", time.gmtime(time.time())))
     log_info("Run time %f seconds" % (time.time() - processing_start_time))
     return 0
+
 
 if __name__ == "__main__":
     retval = 1
