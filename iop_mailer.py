@@ -414,9 +414,10 @@ class MailContent:
             if self.mails != None:
                 for i, mail in enumerate(self.mails):
                     log_info("Sending mail to %s" % mail)
-                    subject = "SG%03d dive %03d: summary" % (float(self.glider), float(self.dive))
-                    Base.send_email(base_opts, float(self.glider), mail,
-                                    subject, content)
+                    if self.glider != None
+                        subject = "SG%03d dive %03d: summary" % (float(self.glider), float(self.dive))
+                        Base.send_email(base_opts, float(self.glider), mail,
+                                        subject, content)
         except Exception:
             log_error("Problems sending emails ")
             log_error(traceback.format_exc())
